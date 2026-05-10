@@ -1,0 +1,40 @@
+python3 -m venv myenv
+source myenv/bin/activate
+
+
+# Deactivate when done
+deactivate
+
+
+✅ Create an empty requirements file manually
+touch requirements.txt
+
+mention all packages inside this file
+
+
+✅ Install dependencies from requirements.txt
+pip install -r requirements.txt
+
+
+
+-- to ignore all the downloads location file
+Method 1 (Explorer Panel)
+Open your project folder in Visual Studio Code
+In the left Explorer sidebar:
+Right click in the project area
+Click New File
+Name the file:
+
+.gitignore
+
+Add this line inside:
+downloads/
+
+
+Create and move to develop:
+git checkout -b develop
+
+ls 
+
+-- to add all git file
+git add .
