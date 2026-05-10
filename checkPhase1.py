@@ -202,12 +202,76 @@ def print_manifest_summary(manifest: dict) -> None:
     print(f"{'─'*60}\n")
 
 
+
+
+
+# ─────────────────────────────────────────────────
+# STEP 2: Download Airport Reference Data (FAA)
+# ─────────────────────────────────────────────────
+# FAA provides airport metadata in JSON format including:
+# IATA code, name, city, state, lat, lon, elevation
+
+def download_airport_reference(dest_dir):
+    """
+    Download airport reference from OpenFlights (public, free, no key needed).
+     Nearby 7,700 airports worldwide.
+
+    Columns: id, name, city, country, IATA, ICAO, lat, lon, altitude, tz_offset,
+             DST, timezone_name, type, source
+
+    DQ Watchpoints:
+      - IATA field can be '\\N' (null in OpenFlights format) — filter these   [Some of the NUll values here]
+      -- in python to see the null value  \\N is used
+      - lat/lon values: range check lat -90..90, lon -180..180
+      - Some airports appear twice with different source entries
+    """
+    url = "https://raw.githubusercontent.com/jpatokal/openflights/master/data/airports.dat"
+    local_path = os.path.join(dest_dir, "airports.dat")
+
+    print(f"[DOWNLOAD] Airport reference data")
+    resp = requests.get(url, timeout=30)
+
+    # PRINTING THE AIRPORT DATA USING THE BELOW LINE
+    # print(resp.content)
+
+    resp.raise_for_status()
+
+    with open(local_path, "wb") as f:
+        f.write(resp.content)
+
+    # Parse and save as clean JSON
+    import csv
+    cols = ["id","name","city","country","iata","icao","latitude","longitude",
+            "altitude","utc_offset","dst","timezone","type","source"]
+    airports = []
+    for line in resp.text.splitlines():
+        row = next(csv.reader([line]))
+        if len(row) == len(cols):
+            d = dict(zip(cols, row))
+            # DQ: Filter valid IATA codes (3 uppercase letters)
+            if d["iata"] and len(d["iata"]) == 3 and d["iata"] != "\\N":
+                airports.append(d)
+
+    json_path = os.path.join(dest_dir, "airports.json")
+    with open(json_path, "w") as f:
+        json.dump(airports, f, indent=2)
+
+    print(f"  [OK] {len(airports)} airports → {json_path}")
+    return json_path
+
+
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     print("=" * 70)
     print("  US Flight Delay Analytics — Data Acquisition")
     print("=" * 70)
+
+    # download the airport code info in dat file then the json file as required
+    airport_path = download_airport_reference(LOCAL_DOWNLOAD_DIR)
+
 
     # Load (or create) the manifest once at startup
     manifest = _load_manifest()
