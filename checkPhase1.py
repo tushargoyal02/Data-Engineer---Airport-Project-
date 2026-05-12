@@ -18,7 +18,10 @@ import os
 import json
 import time
 import requests
+import zipfile
 from pathlib import Path
+import pandas as pd
+import fastparquet
 from datetime import datetime, timezone
 
 
@@ -261,6 +264,25 @@ def download_airport_reference(dest_dir):
 
 
 
+# ─────────────────────────────────────────────────
+# STEP 3: Convert ZIP to Parquet
+# ─────────────────────────────────────────────────
+def convert_zip_to_parquet(zip_path ):
+
+    # replace the string .zip to .parquet to create parquet later on
+    parquet_path = zip_path.replace(".zip", ".parquet")
+
+    with zipfile.ZipFile(zip_path) as zf:
+        # take the name of the file
+        csv_filename = [f for f in zf.namelist() if f.endswith(".csv")][0]
+        with zf.open(csv_filename) as csv_file:
+            df = pd.read_csv(csv_file)
+
+    df.to_parquet(parquet_path, index=False)
+    print(f" Parquet files saved --→ {parquet_path}")
+
+    return parquet_path
+
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
@@ -281,8 +303,11 @@ if __name__ == "__main__":
         for month in MONTHS:
             zip_path = download_bts_month(year, month, LOCAL_DOWNLOAD_DIR, manifest)
             if zip_path:
-                print(f"  Ready: {zip_path}")
+                print(f" --- Ready ---: {zip_path}")
                 # Uncomment when S3 upload is wired up:
+
+                #ZIP TO PARQUET -- CALLING FUNCTIONS
+                parquet_path = convert_zip_to_parquet(zip_path)
                 # s3_prefix = f"flights/year={year}/month={month:02d}"
                 # upload_to_s3(zip_path, s3_prefix)
             time.sleep(2)   # Be polite to BTS servers

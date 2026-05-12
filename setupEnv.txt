@@ -10,6 +10,8 @@ deactivate
 touch requirements.txt
 
 mention all packages inside this file
+fastparquet  <-- this is also required in case if you want the parquet file format support
+arrow  <-- both packages are required
 
 
 ✅ Install dependencies from requirements.txt
@@ -53,3 +55,34 @@ Cmd + Shift + P
 
 3. Search for:
 Shell Command: Install 'code' command in PATH
+
+
+---------
+github comparison of commit
+---------------
+✅ Compare commit 1 vs commit 2 on GitHub
+
+https://github.com/USERNAME/REPO/compare/COMMIT1...COMMIT2
+
+Example: abc123...xyz789
+
+
+
+✅ How someone can do it locally after cloning
+git clone YOUR_REPO_URL
+
+
+commit history
+git log --oneline
+
+
+✅ Open old version files
+git checkout a1b2c3
+
+
+
+
+✅ Compare first and second versions locally
+git diff a1b2c3 d4e5f6
+
+

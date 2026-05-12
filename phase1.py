@@ -19,6 +19,8 @@ import io
 import json
 import time
 import boto3
+import pyarrow
+import fastparquet
 from pathlib import Path
 
 

@@ -1,2 +1,5 @@
 requests
 boto3
+pandas
+pyarrow
+fastparquet
