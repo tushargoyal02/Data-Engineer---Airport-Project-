@@ -42,7 +42,7 @@ MANIFEST_PATH = os.path.join(LOCAL_DOWNLOAD_DIR, "download_manifest.json")
 # ── BTS config ────────────────────────────────────────────────────────────────
 BTS_BASE_URL = "https://transtats.bts.gov/PREZIP/"
 YEARS        = [2021]
-MONTHS       = range(1, 4)   # extend to range(1, 13) for full year
+MONTHS       = range(1, 2)   # extend to range(1, 13) for full year
 
 
 # ── Manifest helpers ──────────────────────────────────────────────────────────
@@ -273,19 +273,22 @@ def download_airport_reference(dest_dir):
 # ─────────────────────────────────────────────────
 def convert_zip_to_parquet(zip_path ):
 
-    # replace the string .zip to .parquet to create parquet later on
-    parquet_path = zip_path.replace(".zip", ".parquet")
+    if os.path.exists(zip_path):
+        # replace the string .zip to .parquet to create parquet later on
+        parquet_path = zip_path.replace(".zip", ".parquet")
 
-    with zipfile.ZipFile(zip_path) as zf:
-        # take the name of the file
-        csv_filename = [f for f in zf.namelist() if f.endswith(".csv")][0]
-        with zf.open(csv_filename) as csv_file:
-            df = pd.read_csv(csv_file)
+        with zipfile.ZipFile(zip_path) as zf:
+            # take the name of the file
+            csv_filename = [f for f in zf.namelist() if f.endswith(".csv")][0]
+            with zf.open(csv_filename) as csv_file:
+                df = pd.read_csv(csv_file)
 
-    df.to_parquet(parquet_path, index=False)
-    print(f" Parquet files saved --→ {parquet_path}")
+        df.to_parquet(parquet_path, index=False)
+        print(f" Parquet files saved --→ {parquet_path}")
 
-    return parquet_path
+        return parquet_path
+    else:
+        print(f" Zip file Don't exists ==> ", zip_path)
 
 
 # ------
@@ -357,7 +360,7 @@ def upload_to_s3(local_path , year , month , bucket_name ) :
             pass
         else:
             raise
-            
+
     # upload the parquet file to s3
     s3.upload_file(
         local_path,
@@ -371,7 +374,12 @@ def upload_to_s3(local_path , year , month , bucket_name ) :
 
    # End of step 4 ----
 
-
+def remove_zip(local_path):
+    if os.path.exists(local_path):
+        os.remove(local_path)
+        print(f" The file is removed===> {local_path}")
+    else:
+        print(f"----- Not removed ---- ")
 
 
 
@@ -400,6 +408,9 @@ if __name__ == "__main__":
 
                 #ZIP TO PARQUET -- CALLING FUNCTIONS
                 parquet_path = convert_zip_to_parquet(zip_path)
+
+                print("$$$ --- ", zip_path)
+                remove_zip(zip_path)
 
                 upload_to_s3(parquet_path,year,month, 'airport-project-de' )
             time.sleep(2)   # Be polite to BTS servers
