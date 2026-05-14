@@ -402,17 +402,17 @@ if __name__ == "__main__":
     for year in YEARS:
         for month in MONTHS:
             zip_path = download_bts_month(year, month, LOCAL_DOWNLOAD_DIR, manifest)
-            if zip_path:
+            if os.path.exists(zip_path):
                 print(f" --- Ready ---: {zip_path}")
                 # Uncomment when S3 upload is wired up:
 
                 #ZIP TO PARQUET -- CALLING FUNCTIONS
                 parquet_path = convert_zip_to_parquet(zip_path)
 
+                upload_to_s3(parquet_path,year,month, 'airport-project-de' )
+                
                 print("$$$ --- ", zip_path)
                 remove_zip(zip_path)
-
-                upload_to_s3(parquet_path,year,month, 'airport-project-de' )
             time.sleep(2)   # Be polite to BTS servers
 
     print_manifest_summary(manifest)
