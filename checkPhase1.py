@@ -345,6 +345,19 @@ def upload_to_s3(local_path , year , month , bucket_name ) :
 
     print(f" ## --> ## UPLOAD {filename} ({file_size_mb:.1f} MB) → s3://{bucket_name}/{s3_key}")
 
+    # check if the file already exists on s3 — if yes skip the upload
+    # head_object checks the file metadata without downloading the file
+    try:
+        s3.head_object(Bucket=bucket_name, Key=s3_key)
+        print(f"  [SKIP] File already exists on S3 → s3://{bucket_name}/{s3_key}")
+        return
+    except ClientError as e:
+        # 404 means file does not exist on s3 — safe to upload
+        if e.response["Error"]["Code"] == "404":
+            pass
+        else:
+            raise
+            
     # upload the parquet file to s3
     s3.upload_file(
         local_path,
