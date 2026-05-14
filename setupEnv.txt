@@ -86,3 +86,7 @@ git checkout a1b2c3
 git diff a1b2c3 d4e5f6
 
 
+created another file for step4 with name awscredits.py
+which have the two variable we will use it for having
+AWS_ACCESS_KEY
+aws_secret_access_key

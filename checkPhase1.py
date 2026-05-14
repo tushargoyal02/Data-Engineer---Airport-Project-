@@ -22,7 +22,11 @@ import zipfile
 from pathlib import Path
 import pandas as pd
 import fastparquet
+import boto3
 from datetime import datetime, timezone
+from awscredits import AWS_ACCESS_KEY,AWS_SECRET_KEY, AWS_REGION
+from botocore.exceptions import ClientError
+
 
 
 # ── Directories ───────────────────────────────────────────────────────────────
@@ -38,7 +42,7 @@ MANIFEST_PATH = os.path.join(LOCAL_DOWNLOAD_DIR, "download_manifest.json")
 # ── BTS config ────────────────────────────────────────────────────────────────
 BTS_BASE_URL = "https://transtats.bts.gov/PREZIP/"
 YEARS        = [2021]
-MONTHS       = range(1, 3)   # extend to range(1, 13) for full year
+MONTHS       = range(1, 4)   # extend to range(1, 13) for full year
 
 
 # ── Manifest helpers ──────────────────────────────────────────────────────────
@@ -284,6 +288,81 @@ def convert_zip_to_parquet(zip_path ):
     return parquet_path
 
 
+# ------
+# ─────────────────────────────────────────────────
+# STEP 4: Upload Parquet to S3
+# once we have the parquet file locally, we upload it to s3
+# the folder structure year -> month is built automatically from the loop values
+# if the bucket doesn't exist we create it before uploading
+# ─────────────────────────────────────────────────
+
+# HERE WE GIVE THE BUCKET_NAME
+def upload_to_s3(local_path , year , month , bucket_name ) :
+
+    # connect to s3 using our aws credentials
+
+    # accessing all these from the awscredit.py file by importing it
+    s3 = boto3.client(
+        "s3",
+        aws_access_key_id=AWS_ACCESS_KEY,
+        aws_secret_access_key=AWS_SECRET_KEY,
+        region_name=AWS_REGION,
+    )
+
+    # check if bucket exists — if not, create it
+    try:
+        s3.head_bucket(Bucket=bucket_name)
+        print(f" ### The S3 Bucket '{bucket_name}' exists #### ")
+
+    except ClientError as e:
+        error_code = e.response["Error"]["Code"]
+
+        # 403 means bucket exists but belongs to someone else — we can't touch it
+        if error_code == "403":
+            raise PermissionError(
+                f"Bucket '{bucket_name}' is owned by another AWS account."
+            ) from e
+
+        # 404 means bucket doesn't exist — let's create it
+        print(f" The S3 Bucket ==> '{bucket_name}' is not found — so creating...")
+
+        create_kwargs = {"Bucket": bucket_name}
+
+        # us-east-1 is aws default region — it doesn't need LocationConstraint
+        # every other region does otherwise aws throws an error
+        if AWS_REGION != "us-east-1":
+            create_kwargs["CreateBucketConfiguration"] = {"LocationConstraint": AWS_REGION}
+
+        s3.create_bucket(**create_kwargs)
+        print(f"  Bucket ==> '{bucket_name}' <== created.")
+
+    # build the s3 path with year and month as partition folders
+    # this is what makes spark happy when reading — it auto-detects partitions
+    # raw/flights/year=2021/month=01/filename.parquet
+    filename     = os.path.basename(local_path)
+    s3_key       = f"flights/year={year}/month={month:02d}/{filename}"
+    file_size_mb = os.path.getsize(local_path) / (1024 ** 2)
+
+    print(f" ## --> ## UPLOAD {filename} ({file_size_mb:.1f} MB) → s3://{bucket_name}/{s3_key}")
+
+    # upload the parquet file to s3
+    s3.upload_file(
+        local_path,
+        bucket_name,
+        s3_key,
+        ExtraArgs={"ContentType": "application/octet-stream"},
+    )
+
+    print(f"  File OK Uploaded → s3://{bucket_name}/{s3_key}")
+
+
+   # End of step 4 ----
+
+
+
+
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -308,8 +387,8 @@ if __name__ == "__main__":
 
                 #ZIP TO PARQUET -- CALLING FUNCTIONS
                 parquet_path = convert_zip_to_parquet(zip_path)
-                # s3_prefix = f"flights/year={year}/month={month:02d}"
-                # upload_to_s3(zip_path, s3_prefix)
+
+                upload_to_s3(parquet_path,year,month, 'airport-project-de' )
             time.sleep(2)   # Be polite to BTS servers
 
     print_manifest_summary(manifest)
